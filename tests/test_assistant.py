@@ -54,16 +54,37 @@ class SettingsTests(unittest.TestCase):
             env_file = Path(directory) / ".env"
             with patch.dict(os.environ, environment, clear=True), patch("sql_assistant.Path") as path:
                 path.return_value.with_name.return_value = env_file
-                env_file.write_text("DB_PASSWORD=updated-password\n")
-                self.assertEqual(Settings.from_env().password, "updated-password")
+                env_file.write_text(
+                    "DB_PASSWORD=updated-password\nDB_REQUIRE_TLS=true\nDB_SSL_CA=/tmp/mysql-ca.pem\n"
+                )
+                updated = Settings.from_env()
+                self.assertEqual(updated.password, "updated-password")
+                self.assertTrue(updated.require_tls)
+                self.assertEqual(updated.ssl_ca, "/tmp/mysql-ca.pem")
                 env_file.write_text("DB_PASSWORD=newer-password\nDB_UNIX_SOCKET=/tmp/test-mysql.sock\n")
                 updated = Settings.from_env()
                 self.assertEqual(updated.password, "newer-password")
                 self.assertEqual(updated.unix_socket, "/tmp/test-mysql.sock")
+                self.assertFalse(updated.require_tls)
                 self.assertEqual(os.environ["DB_PASSWORD"], "old-password")
                 env_file.write_text("DB_PASSWORD=\n")
                 with self.assertRaises(AssistantError):
                     Settings.from_env()
+
+    def test_invalid_database_tls_setting_is_rejected(self):
+        with patch("sql_assistant.read_config", return_value={
+            "AZURE_OPENAI_ENDPOINT": SETTINGS.endpoint,
+            "AZURE_OPENAI_API_KEY": SETTINGS.api_key,
+            "AZURE_OPENAI_API_VERSION": SETTINGS.api_version,
+            "AZURE_OPENAI_DEPLOYMENT_MINI": SETTINGS.deployment,
+            "DB_HOST": SETTINGS.host,
+            "DB_PORT": str(SETTINGS.port),
+            "DB_USER": SETTINGS.user,
+            "DB_PASSWORD": SETTINGS.password,
+            "DB_REQUIRE_TLS": "sometimes",
+        }):
+            with self.assertRaises(AssistantError):
+                Settings.from_env()
 
     def test_settings_representation_does_not_include_secrets(self):
         settings = replace(SETTINGS, api_key="private-api-key", password="private-db-password")
@@ -292,10 +313,22 @@ class AnswerTests(unittest.TestCase):
                 assistant = SQLAssistant(replace(SETTINGS, unix_socket=socket_path))
                 assistant.connect()
                 self.assertEqual(connect.call_args.kwargs["unix_socket"], socket_path or None)
+                self.assertIsNone(connect.call_args.kwargs["ssl"])
                 self.assertEqual(connect.call_args.kwargs["user"], SETTINGS.user)
                 self.assertEqual(connect.call_args.kwargs["password"], SETTINGS.password)
                 self.assertEqual(connect.call_args.kwargs["host"], SETTINGS.host)
                 self.assertEqual(connect.call_args.kwargs["port"], SETTINGS.port)
+
+    @patch("sql_assistant.AzureOpenAI")
+    @patch("sql_assistant.pymysql.connect")
+    @patch("sql_assistant.ssl.create_default_context")
+    def test_connect_enforces_verified_tls_when_configured(self, create_context, connect, client):
+        context = object()
+        create_context.return_value = context
+        assistant = SQLAssistant(replace(SETTINGS, require_tls=True, ssl_ca="/tmp/mysql-ca.pem"))
+        assistant.connect()
+        create_context.assert_called_once_with(cafile="/tmp/mysql-ca.pem")
+        self.assertIs(connect.call_args.kwargs["ssl"], context)
 
     @patch("sql_assistant.AzureOpenAI")
     @patch("sql_assistant.pymysql.connect")

@@ -128,6 +128,8 @@ class Settings:
     user: str
     password: str = field(repr=False)
     unix_socket: str = ""
+    require_tls: bool = False
+    ssl_ca: str = ""
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -157,6 +159,10 @@ class Settings:
         except ValueError as error:
             LOGGER.error("Invalid database port configuration")
             raise AssistantError("The database connection settings need correcting.") from error
+        tls_setting = config.get("DB_REQUIRE_TLS", "false").strip().lower()
+        if tls_setting not in {"true", "false", "1", "0"}:
+            LOGGER.error("Invalid database TLS setting")
+            raise AssistantError("The database connection settings need correcting.")
         return cls(
             config["AZURE_OPENAI_ENDPOINT"],
             config["AZURE_OPENAI_API_KEY"],
@@ -167,6 +173,8 @@ class Settings:
             config["DB_USER"],
             config["DB_PASSWORD"],
             config.get("DB_UNIX_SOCKET", ""),
+            tls_setting in {"true", "1"},
+            config.get("DB_SSL_CA", "").strip(),
         )
 
 
@@ -295,6 +303,11 @@ class SQLAssistant:
             read_timeout=20,
             write_timeout=10,
             autocommit=False,
+            ssl=(
+                ssl.create_default_context(cafile=self.settings.ssl_ca or None)
+                if self.settings.require_tls or self.settings.ssl_ca
+                else None
+            ),
         )
 
     def discover_schema(self) -> Schema:

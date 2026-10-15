@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: sage-pilot
+    runtime: python
+    plan: starter
+    autoDeployTrigger: checksPass
+    buildCommand: pip install -r requirements.txt
+    startCommand: "gunicorn --bind 0.0.0.0:$PORT --worker-class gthread --workers 1 --threads 8 'app:create_app()'"
+    healthCheckPath: /
+    disk:
+      name: sage-pilot-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: STORE_PATH
+        value: /var/data/studio.sqlite3
+      - key: AZURE_OPENAI_ENDPOINT
+        sync: false
+      - key: AZURE_OPENAI_API_KEY
+        sync: false
+      - key: AZURE_OPENAI_API_VERSION
+        value: "2024-10-21"
+      - key: AZURE_OPENAI_DEPLOYMENT_MINI
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_UNIX_SOCKET
+        value: ""
+      - key: DB_REQUIRE_TLS
+        value: "true"
+      - key: OWNER_PASSWORD
+        sync: false
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_APP_PASSWORD
+        sync: false

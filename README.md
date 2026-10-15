@@ -88,6 +88,26 @@ STARTTLS to `smtp.gmail.com:587`; recipients cannot be supplied by public users.
 The saved PDF is attached without regeneration. Duplicate sends are blocked;
 an uncertain SMTP acknowledgement requires checking Gmail before another attempt.
 
+## Deploy to Render
+
+The repository includes a Render Blueprint and GitHub Actions test workflow.
+Connect this repository to Render as a Blueprint. Render waits for the test
+workflow to pass before deploying and attaches a paid persistent disk for
+session/report storage. Render generates the public URL after the service starts.
+
+Set the Blueprint's `sync: false` values in Render's private environment settings;
+do not commit `.env` or paste credentials into GitHub or chat. Provide the Azure
+endpoint/key/deployment, the cloud MySQL host and dedicated SELECT-only user,
+`OWNER_PASSWORD`, `SMTP_USERNAME`, and `SMTP_APP_PASSWORD`. The database must be
+reachable from Render over TCP; local MySQL sockets are not available there.
+TLS certificate verification is enabled for the database connection. If the
+provider uses a private CA, set `DB_SSL_CA` to its certificate path in Render.
+
+**Anyone who can access the public app can browse and query the connected
+database.** Use only data approved for public access and a SELECT-only MySQL
+account. The configured Gmail address remains the recipient; only the signed-in
+owner sees the PDF email action.
+
 ## Temporary public access
 
 ```bash
