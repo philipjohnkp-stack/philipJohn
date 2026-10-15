@@ -1,0 +1,52 @@
+.sidebar { width: 290px; background: #f1eee7; padding: 28px 20px 20px; }
+.sidebar .brand-icon { width: 68px; height: 68px; border-radius: 0; background: transparent; object-fit: contain; }
+.workspace { margin-left: 290px; }
+.sidebar-scroll { flex: 1; min-height: 0; overflow-y: auto; padding-right: 5px; }
+.sidebar-scroll .table-list { max-height: 220px; flex: none; }
+.sidebar-tables { margin: 18px 0 22px; border: 0; padding: 0; }
+.sidebar-tables > summary { color: #93816e; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+.sidebar .section-heading { font: 700 13px Georgia, serif; letter-spacing: .6px; color: #807865; margin: 26px 0 15px; }
+.recent-chat { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font: 16px/1.5 Georgia, serif; padding: 10px 12px; margin-bottom: 3px; background: transparent; color: #7f796a; border-radius: 6px; }
+.recent-chat:hover { background: #e9e3d8; color: #574b3b; }
+.recent-chat[aria-current="page"] { background: #e9e3d8; }
+.voice-section { padding-bottom: 25px; }
+.voice-section h3 { margin: 0 0 14px; font: 18px Georgia, serif; color: #6c6657; }
+.voice-input { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 67px; background: #fbf9f5; color: #9a9b90; padding: 16px; border-radius: 11px; }
+.voice-input:hover { background: #fffdf9; }
+.voice-input:disabled { opacity: .6; cursor: not-allowed; }
+.voice-input.recording { color: #a63b2b; box-shadow: inset 0 0 0 1px #c6816c; }
+#voice-time { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 1px; }
+.voice-wave { display: flex; align-items: center; justify-content: space-between; gap: 5px; flex: 1; }
+.voice-wave i { display: block; width: 4px; height: 5px; border-radius: 4px; background: #ebe9e1; }
+.recording .voice-wave i { background: #b56d57; animation: voice-pulse .8s ease-in-out infinite alternate; }
+.recording .voice-wave i:nth-child(even) { animation-delay: .3s; }
+@keyframes voice-pulse { to { height: 22px; } }
+.speech-toggle { display: flex; align-items: center; gap: 10px; font: 16px Georgia, serif; color: #726a58; cursor: pointer; margin-top: 17px; }
+.speech-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.switch-track { display: inline-block; flex-shrink: 0; width: 37px; height: 21px; background: #cecec3; border-radius: 15px; padding: 3px; }
+.switch-track::after { content: ""; display: block; width: 15px; height: 15px; background: #f8f7f1; border-radius: 50%; transition: transform .15s; }
+.speech-toggle input:checked + .switch-track { background: #a63b2b; }
+.speech-toggle input:checked + .switch-track::after { transform: translateX(16px); }
+.speech-toggle input:focus-visible + .switch-track { outline: 2px solid #a63b2b; outline-offset: 3px; }
+.speech-toggle input:disabled + .switch-track { opacity: .4; }
+.sidebar-footer { flex-shrink: 0; border-top: 1px solid #e4dfd4; padding-top: 17px; margin-top: 12px; color: #756c5b; font: 14px/1.55 Georgia, serif; }
+.sidebar-footer strong, .sidebar-footer span { display: block; }
+.sidebar-footer strong { font-size: 15px; }
+.sidebar-toggle { position: absolute; top: 45%; right: -13px; width: 27px; height: 54px; padding: 0; border-radius: 7px; background: #f5f1e9; color: #969187; box-shadow: 0 0 0 1px #e7e0d6; font: 37px Georgia, serif; z-index: 5; }
+.sidebar-toggle:hover { background: #eae3d7; color: #6d5b4c; }
+.sidebar-collapsed .sidebar { width: 25px; padding: 0; }
+.sidebar-collapsed .sidebar > :not(.sidebar-toggle) { display: none; }
+.sidebar-collapsed .workspace { margin-left: 25px; }
+@media (max-width: 600px) {
+  .sidebar { width: 100%; padding: 20px; }
+  .workspace { margin-left: 0; }
+  .sidebar-scroll { max-height: 350px; margin-top: 15px; }
+  .sidebar .section-heading { display: block; }
+  .sidebar-toggle { top: 25px; right: 15px; }
+  .sidebar-collapsed .sidebar { width: 100%; height: 50px; }
+  .sidebar-collapsed .sidebar-toggle { top: 0; }
+  .sidebar-collapsed .workspace { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recording .voice-wave i { animation: none; height: 12px; }
+}

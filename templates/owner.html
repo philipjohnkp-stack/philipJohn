@@ -1,0 +1,5 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="csrf-token" content="{{ csrf }}"><title>Owner access</title><link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}"><script defer src="{{ url_for('static', filename='app.js') }}"></script></head>
+<body><main class="shell login"><a class="brand" href="/">SAGE PILOT</a><h1>Owner access</h1><form id="owner-form"><label for="owner-password">Password</label><input type="password" id="owner-password" autocomplete="current-password" required><button type="submit">Sign in</button></form><p id="status" role="status"></p></main></body>
+</html>
