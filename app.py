@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import logging
 import json
+import os
 import secrets
 import sqlite3
 from io import BytesIO
@@ -38,7 +39,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     app.config.update(MAX_CONTENT_LENGTH=16384, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
     if test_config:
         app.config.update(test_config)
-    store = Store(Path(app.config.get("STORE_PATH", Path(app.instance_path) / "studio.sqlite3")))
+    store_path = app.config.get("STORE_PATH") or os.environ.get("STORE_PATH") or Path(app.instance_path) / "studio.sqlite3"
+    store = Store(Path(store_path))
     app.config["SECRET_KEY"] = app.config.get("SECRET_KEY") or store.secret()
     app.extensions["store"] = store
     app.session_interface = SessionCookies()

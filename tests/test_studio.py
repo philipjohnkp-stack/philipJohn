@@ -134,6 +134,13 @@ class FlaskTests(unittest.TestCase):
         self.config.start()
         self.addCleanup(self.config.stop)
 
+    def test_store_path_can_use_persistent_deployment_storage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store_path = Path(directory) / "persistent" / "studio.sqlite3"
+            with patch.dict("os.environ", {"STORE_PATH": str(store_path)}):
+                app = create_app({"TESTING": True})
+            self.assertEqual(app.extensions["store"].path, store_path)
+
     def post(self, path, data=None):
         return self.client.post(path, json=data or {}, headers={"X-CSRF-Token": self.csrf})
 
