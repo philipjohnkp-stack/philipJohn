@@ -4,54 +4,86 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf }}">
   <title>SAGE PILOT</title>
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='monogram.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='sidebar.css') }}">
   <script defer src="{{ url_for('static', filename='app.js') }}"></script>
 </head>
-<body>
+<body class="sage-layout">
+  <header class="sage-header">
+    <a class="brand" href="/"><img class="brand-icon" src="{{ url_for('static', filename='monogram.png') }}" alt=""><span>SAGE PILOT<small>Ask. Explore. Understand.</small></span></a>
+    <div class="theme-control">
+      <select id="theme-mode" class="theme-select" aria-label="Appearance" aria-describedby="theme-status">
+        <option value="auto" selected>Auto</option><option value="light">Light</option><option value="dark">Dark</option>
+      </select>
+      <svg class="theme-icon theme-sun" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <svg class="theme-icon theme-moon" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.5A9 9 0 0 1 8.5 4a9 9 0 1 0 11.5 11.5Z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+      <p id="theme-status" class="theme-status" role="status"></p>
+    </div>
+  </header>
   <aside class="sidebar">
     <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Collapse sidebar" aria-expanded="true">&lsaquo;</button>
-    <a class="brand" href="/"><img class="brand-icon" src="{{ url_for('static', filename='monogram.png') }}" alt=""><span>SAGE PILOT<small>Ask. Explore. Understand.</small></span></a>
     <button id="new-chat">+ New conversation</button>
     <div class="sidebar-scroll">
-    <p class="sidebar-label">WORKSPACE</p><div id="workspace-name" class="workspace-card">All databases</div>
-    <details class="sidebar-tables"><summary>TABLES</summary><div id="table-list" class="table-list"></div></details>
     <p class="sidebar-label section-heading">RECENT CHATS</p>
     <nav id="recent-chats" class="recent-chats" aria-label="Recent chats"><p class="muted">Your conversations will appear here.</p></nav>
+    <button id="clear-history" class="quiet clear-history" type="button" disabled>Delete history</button>
     <section class="voice-section" aria-label="Voice controls">
       <p class="sidebar-label section-heading">VOICE</p><h3>Ask by voice</h3>
-      <button id="voice-input" class="voice-input" type="button" aria-label="Start voice input" title="Uses your browser's speech recognition service">
+      <button id="voice-input" class="voice-input" type="button" aria-label="Start voice input" aria-pressed="false" title="Uses your browser's speech recognition service">
         <svg width="20" height="24" viewBox="0 0 24 28" aria-hidden="true"><rect x="8" y="2" width="8" height="15" rx="4" fill="currentColor"/><path d="M4 12v2a8 8 0 0 0 16 0v-2M12 22v4M8 26h8" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-        <span class="voice-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span id="voice-time">00:00</span>
+        <span class="voice-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span id="voice-state" class="voice-state" aria-hidden="true">OFF</span><span id="voice-time">00:00</span>
       </button>
       <p id="voice-status" class="muted" role="status"></p>
-      <label class="speech-toggle"><input id="read-aloud" type="checkbox"><span class="switch-track" aria-hidden="true"></span>Read responses aloud</label>
+      <label class="speech-toggle"><input id="read-aloud" type="checkbox"><span class="switch-track" aria-hidden="true"></span><span class="speech-label">Read responses aloud</span><span id="read-aloud-state" class="speech-state" aria-hidden="true">OFF</span></label>
     </section>
     </div>
     <footer class="sidebar-footer"><strong>Created by Philip John</strong><span>All rights reserved 2026</span></footer>
   </aside>
   <main class="workspace">
-    <header class="topbar"><span>Workspace <span class="slash">/</span> Data exploration</span><label>DATABASE <select id="database-select" aria-label="Database"><option value="">All databases</option></select></label></header>
+    <div class="workspace-navigation">
+      <fieldset class="mode-tabs">
+        <legend class="visually-hidden">Answer mode</legend>
+        <label><input type="radio" name="mode" value="chat" form="question-form" checked><span>Quick answer</span></label>
+        <label><input type="radio" name="mode" value="analysis" form="question-form"><span>Analyze data</span></label>
+      </fieldset>
+    </div>
     <div class="shell">
     <section id="welcome"><p class="eyebrow">WELCOME</p><h1>Sage data pilot</h1><p>How can I help you with your data today?</p></section>
-    <section id="messages" aria-live="polite"></section>
+    <section id="messages" aria-label="Conversation history" aria-live="polite"></section>
+    <section id="executive-dashboard" aria-label="Executive dashboard" aria-live="polite" hidden>
+      <div class="dashboard-empty"><h2>Executive dashboard</h2><p>Ask a data question to see its summary, metrics, and charts here.</p></div>
+    </section>
     <p id="status" role="status"></p>
     <form id="question-form">
-      <div class="modes"><label><input type="radio" name="mode" value="analysis" checked> Analyze &amp; report</label><label><input type="radio" name="mode" value="chat"> Quick answer</label></div>
-      <div class="composer"><textarea id="question" maxlength="4000" rows="2" placeholder="Ask about your data..." aria-label="Your question" required></textarea><button id="submit" type="submit">Run <span aria-hidden="true">&uarr;</span></button></div>
+      <div id="snip-preview" class="snip-preview" hidden></div>
+      <div class="composer"><textarea id="question" maxlength="4000" rows="2" placeholder="Ask a question or explore your data..." aria-label="Your question"></textarea><button id="submit" type="submit">Run <span aria-hidden="true">&uarr;</span></button></div>
     </form>
     </div>
   </main>
-  <dialog id="report-modal"><div class="modal-heading"><h2>Business report</h2><button id="close-report" class="quiet" aria-label="Close report">Close</button></div>
-    <section id="report-preview" class="report-paper" aria-label="Business report preview"></section>
-    <div class="modal-actions"><a id="download-report" class="button" download>Download PDF</a>{% if owner %}<button id="email-report">Send to my Gmail</button>{% endif %}</div>
-    <p id="mail-status" role="status"></p>
+  <dialog id="history-modal" aria-labelledby="history-heading" aria-describedby="history-description">
+    <h2 id="history-heading">Delete session history?</h2>
+    <p id="history-description">Permanently delete the conversations and saved reports available in this browser session. This cannot be undone. Your database records, other visitors' history, downloaded PDFs, and sent emails are not deleted.</p>
+    <p id="history-status" role="status"></p>
+    <div class="modal-actions"><button id="cancel-clear-history" class="quiet" type="button" autofocus>Cancel</button><button id="confirm-clear-history" type="button">Delete history</button></div>
   </dialog>
-  <dialog id="table-modal"><div class="modal-heading"><h2 id="table-title">Table</h2><button id="close-table" class="quiet">Close table</button></div>
-    <details><summary>Column details</summary><div id="table-structure" class="table-scroll"></div></details>
-    <div id="table-data" class="table-scroll"></div><p id="table-page-info" role="status"></p>
-    <div class="modal-actions"><button id="previous-page" class="quiet">Previous</button><button id="next-page" class="quiet">Next</button></div>
+  <dialog id="report-modal"><div class="modal-heading"><h2>PDF options</h2><button id="close-report" class="quiet" aria-label="Close report">Close</button></div>
+    <label for="pdf-chart">Chart in PDF</label>
+    <select id="pdf-chart"><option value="none">No chart</option><option value="bar">Bar chart</option><option value="line">Line chart</option></select>
+    <p id="chart-status" class="muted"></p>
+    <div class="modal-actions"><a id="download-report" class="button" download>Download PDF</a></div>
+    <form id="client-email-form" class="client-email">
+      <label for="recipient-email">Email recipient</label>
+      <input id="recipient-email" type="email" maxlength="254" placeholder="recipient@example.com" required>
+      <button id="email-report" class="email-send" type="submit">
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3z M3 5l9 7 9-7" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+        <span>Send PDF by email</span>
+      </button>
+      <p class="muted">Enter your email address. Sage sends the PDF attachment with your selected chart; no sign-in or email app needed. One send per report. Sending limits apply.</p>
+    </form>
+    <p id="mail-status" role="status"></p>
+    <section id="report-preview" class="report-paper" aria-label="Business report preview"></section>
   </dialog>
 </body>
 </html>
