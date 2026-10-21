@@ -314,7 +314,7 @@ class SQLAssistant:
             azure_endpoint=settings.endpoint,
             api_key=settings.api_key,
             api_version=settings.api_version,
-            timeout=45.0,
+            timeout=25.0,
             max_retries=1,
         )
 

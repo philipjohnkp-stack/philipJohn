@@ -111,7 +111,7 @@ function configureVoice() {
 
 async function api(path, body) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 120000);
+  const timer = setTimeout(() => controller.abort(), 60000);
   const response = await fetch(path, {
     signal: controller.signal,
     method: body === undefined ? "GET" : "POST",
