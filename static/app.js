@@ -191,6 +191,7 @@ function clearSnip() {
   pendingSnip = null;
   snipText = "";
   const box = document.getElementById("snip-preview");
+  if (!box) return;
   box.replaceChildren();
   box.hidden = true;
 }
@@ -391,6 +392,10 @@ if (ownerForm) {
     const file = [...(event.clipboardData?.files || [])].find(f => f.type.startsWith("image/"));
     if (!file) return;
     event.preventDefault();
+    if (!snipPreview) {
+      status.textContent = "Reload the chat page before pasting a snip.";
+      return;
+    }
     if (file.type !== "image/png") { status.textContent = "Please paste a PNG snip."; return; }
     if (file.size > 2 * 1024 * 1024) { status.textContent = "Snip is too large (max 2 MB)."; return; }
     const reader = new FileReader();
