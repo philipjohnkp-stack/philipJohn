@@ -10,6 +10,10 @@ dialog{border:1px solid var(--border);border-radius:13px;width:min(1100px,95vw);
 @media(max-width:600px){.sidebar{position:relative;width:100%;padding:18px;border-right:0;border-bottom:1px solid var(--border)}.sidebar .brand{font-size:20px}.sidebar #new-chat{margin:18px 0 0}.sidebar-label,.workspace-card,.sidebar-bottom{display:none}.table-list{max-height:160px;margin-top:10px}.table-group{padding-top:6px}.workspace{margin-left:0}.topbar{min-height:58px}.shell{padding:18px;min-height:calc(100dvh - 270px)}#welcome{padding:15px 0 25px}.message{padding:17px}.message.user{max-width:95%}h1{font-size:30px}.composer{gap:4px}.modes{gap:15px}.modal-actions{flex-wrap:wrap}dialog{padding:14px}.report-paper{padding:15px}}
 
 :root { color-scheme: light; }
+[hidden] { display: none !important; }
+.data-source-label { display: block; margin-bottom: 6px; font-size: 12px; }
+.data-source-select { width: min(640px, 100%); max-width: 100%; margin-bottom: 4px; }
+#source-status { max-width: 640px; margin: 4px 0 16px; }
 .theme-control { position: relative; flex-shrink: 0; }
 .theme-select { width: 106px; min-height: 40px; padding: 9px 34px 9px 12px; color: inherit; font-size: 13px; appearance: none; }
 .theme-icon { display: none; position: absolute; right: 10px; top: 20px; transform: translateY(-50%); pointer-events: none; }
@@ -98,3 +102,11 @@ dialog{border:1px solid var(--border);border-radius:13px;width:min(1100px,95vw);
 .snip-thumb { display: block; max-width: 320px; max-height: 220px; object-fit: contain; border: 1px solid #8884; border-radius: 8px; background: #fff; image-rendering: -webkit-optimize-contrast; }
 .message .snip-thumb { margin-top: 8px; }
 .snip-remove { font-size: 0.8rem; padding: 2px 8px; cursor: pointer; }
+.working-dots { display: inline-block; min-width: 7ch; letter-spacing: 1px; }
+.searching-bubble { display: inline-flex; align-items: center; gap: 10px; padding: 14px 19px; color: var(--muted); font-style: italic; }
+.searching-dots { display: inline-flex; gap: 5px; }
+.searching-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: sage-searching 1.2s infinite ease-in-out; }
+.searching-dots span:nth-child(2) { animation-delay: .2s; }
+.searching-dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes sage-searching { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .searching-dots span { animation-duration: 2.4s; transform: none !important; } }

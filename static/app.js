@@ -6,6 +6,43 @@ let emailReady = false;
 let busy = false;
 let recognition = null;
 
+function showWorking(target, text) {
+  const dots = document.createElement("span");
+  dots.className = "working-dots";
+  dots.setAttribute("aria-hidden", "true");
+  target.replaceChildren(document.createTextNode(text), dots);
+  let count = 0;
+  const timer = setInterval(() => {
+    count = count % 7 + 1;
+    dots.textContent = ".".repeat(count);
+  }, 300);
+  return () => clearInterval(timer);
+}
+
+function showSearching() {
+  const bubble = document.createElement("article");
+  bubble.className = "message assistant searching-bubble";
+  bubble.setAttribute("role", "status");
+  bubble.setAttribute("aria-label", "Sage is searching");
+  const label = document.createElement("span");
+  label.textContent = "Sage is searching";
+  const dots = document.createElement("span");
+  dots.className = "searching-dots";
+  dots.setAttribute("aria-hidden", "true");
+  for (let i = 0; i < 3; i += 1) dots.append(document.createElement("span"));
+  bubble.append(label, dots);
+  document.getElementById("messages").append(bubble);
+  const welcome = document.getElementById("welcome");
+  const welcomeWasHidden = welcome.hidden;
+  welcome.hidden = true;
+  bubble.scrollIntoView({ behavior: "smooth", block: "end" });
+  return () => {
+    if (!bubble.isConnected) return;
+    bubble.remove();
+    if (!document.querySelector("#messages .message")) welcome.hidden = welcomeWasHidden;
+  };
+}
+
 function showRecentChats(data) {
   const list = document.getElementById("recent-chats");
   list.replaceChildren();
@@ -115,8 +152,9 @@ async function api(path, body) {
   const response = await fetch(path, {
     signal: controller.signal,
     method: body === undefined ? "GET" : "POST",
-    headers: body === undefined ? {} : { "Content-Type": "application/json", "X-CSRF-Token": csrf },
-    body: body === undefined ? undefined : JSON.stringify(body)
+    headers: body === undefined ? {} : body instanceof FormData
+      ? { "X-CSRF-Token": csrf } : { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+    body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body)
   }).catch(error => {
     throw new Error(error.name === "AbortError" ? "The server took too long to respond. Please try again." : "Could not reach the server. Please try again.");
   }).finally(() => clearTimeout(timer));
@@ -126,6 +164,87 @@ async function api(path, body) {
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "The request could not be completed.");
   return data;
+}
+
+async function configurePrivateWorkspace(data) {
+  const selector = document.getElementById("private-source");
+  if (!selector) return;
+  const notice = document.getElementById("workbook-status");
+  const form = document.getElementById("workbook-upload");
+  const remove = document.getElementById("delete-workbook");
+  const sources = await api("/api/sources");
+  selector.replaceChildren();
+  sources.sources.forEach(source => {
+    const option = element("option", source.label);
+    option.value = source.id;
+    selector.append(option);
+  });
+  selector.value = data.source === "none" ? "general" : data.source;
+  if (!selector.value) selector.value = "general";
+  selector.disabled = false;
+  remove.disabled = !selector.value.startsWith("upload:");
+  document.getElementById("database-status").textContent = sources.database_enabled
+    ? (data.local_mode
+      ? "Local MySQL socket configured. Read-only permissions and database scope are checked before use."
+      : "Database configured. Read-only permissions and TLS are checked before use.")
+    : "Database not enabled. General / SQL help explains questions without executing queries. Upload a workbook for Excel calculations.";
+
+  async function changeSource(source) {
+    await api("/api/new", { source });
+    location.reload();
+  }
+  selector.addEventListener("change", async () => {
+    if (busy) {
+      selector.value = data.source;
+      notice.textContent = "Wait for the current operation before changing sources.";
+      return;
+    }
+    busy = true;
+    selector.disabled = true;
+    try { await changeSource(selector.value); }
+    catch (error) {
+      notice.textContent = error.message;
+      selector.value = data.source;
+      selector.disabled = false;
+      busy = false;
+    }
+  });
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (busy) return;
+    const file = document.getElementById("workbook-file").files[0];
+    if (!file || file.size > 20 * 1024 * 1024 || !file.name.toLowerCase().endsWith(".xlsx")) {
+      notice.textContent = "Choose one .xlsx workbook of at most 20 MB.";
+      return;
+    }
+    busy = true;
+    form.querySelector("button").disabled = selector.disabled = true;
+    notice.textContent = "Validating and uploading workbook...";
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const result = await api("/api/uploads", body);
+      await changeSource(result.sources[0].id);
+    } catch (error) {
+      notice.textContent = error.message;
+      busy = false;
+      form.querySelector("button").disabled = selector.disabled = false;
+    }
+  });
+  remove.addEventListener("click", async () => {
+    if (busy || !selector.value.startsWith("upload:")) return;
+    if (!confirm("Delete this workbook, all its worksheets, and saved analyses? This cannot be undone.")) return;
+    busy = true;
+    remove.disabled = true;
+    try {
+      await api("/api/uploads/delete", { source: selector.value, confirm: true });
+      location.reload();
+    } catch (error) {
+      notice.textContent = error.message;
+      busy = false;
+      remove.disabled = false;
+    }
+  });
 }
 
 function element(tag, text, className) {
@@ -176,6 +295,10 @@ async function preview(id) {
     paper.append(chart);
   }
   document.getElementById("download-report").href = `/api/reports/${id}/pdf?download=1&chart=none`;
+  const excelDownload = document.getElementById("download-excel");
+  excelDownload.hidden = !report.excel;
+  if (report.excel) excelDownload.href = `/api/reports/${id}/xlsx`;
+  else excelDownload.removeAttribute("href");
   const send = document.getElementById("email-report");
   if (send) send.disabled = !emailReady || ["sent", "sending", "unknown"].includes(snapshot.mail_status);
   document.getElementById("mail-status").textContent = !emailReady
@@ -186,10 +309,14 @@ async function preview(id) {
 
 let pendingSnip = null;
 let snipText = "";
+let snipVersion = 0;
+let readingSnip = false;
 
 function clearSnip() {
+  snipVersion += 1;
   pendingSnip = null;
   snipText = "";
+  readingSnip = false;
   const box = document.getElementById("snip-preview");
   if (!box) return;
   box.replaceChildren();
@@ -218,6 +345,7 @@ async function renderMessage(message) {
   document.getElementById("welcome").hidden = true;
   if (message.report_id) {
     const { document: report } = await api(`/api/reports/${message.report_id}`);
+    if (report.processing) card.append(element("p", report.processing, "muted"));
     const detailed = report.display_mode === "analysis" || report.display_mode === undefined;
     if (detailed) {
       section(card, "Key findings", report.findings);
@@ -296,6 +424,7 @@ if (ownerForm) {
   });
 } else {
   configureVoice();
+  const externalAI = document.getElementById("allow-external-ai");
   const clearHistory = document.getElementById("clear-history");
   const historyModal = document.getElementById("history-modal");
   const confirmClear = document.getElementById("confirm-clear-history");
@@ -336,30 +465,63 @@ if (ownerForm) {
     event.currentTarget.textContent = collapsed ? "\u203a" : "\u2039";
   });
   api("/api/state").then(async data => {
+    const excelSource = data.source.startsWith("excel:") || data.source.startsWith("upload:");
+    const externalAIOption = document.getElementById("external-ai-option");
+    if (externalAIOption) externalAIOption.hidden = !excelSource && !data.private_mode;
+    if (externalAI) externalAI.checked = false;
+    const disclosure = document.getElementById("ai-disclosure");
+    if (disclosure) {
+      disclosure.hidden = !data.private_mode && !excelSource;
+      disclosure.textContent = data.private_mode
+        ? "Simple Excel calculations run locally in this Azure app. If you allow Azure OpenAI, your question, recent conversation, source structure, and query results may be sent for processing. Use only data approved for this service; masking does not guarantee anonymization. Permission applies to this question only."
+        : excelSource
+        ? "Excel answers supported simple counts and totals locally. More complex questions use Azure OpenAI only if you allow it for that question. The original workbook is not uploaded."
+        : "";
+    }
     emailReady = data.email_ready;
     showRecentChats(data);
     for (const message of data.messages) await renderMessage(message);
+    if (data.private_mode) await configurePrivateWorkspace(data);
   }).catch(error => { status.textContent = error.message; }).finally(() => { clearHistory.disabled = busy; });
   document.getElementById("question-form").addEventListener("submit", async event => {
     event.preventDefault();
     if (busy) return;
     const input = document.getElementById("question");
     const typed = input.value.trim();
-    if (!typed && !snipText) return;
+    if (readingSnip) {
+      status.textContent = "Wait for the snip to finish reading, or remove it before sending.";
+      return;
+    }
+    if (pendingSnip && !snipText) {
+      status.textContent = "The snip could not be read. Paste the original text, try a clearer image, or remove the snip.";
+      return;
+    }
+    if (!typed && !snipText) {
+      status.textContent = "Enter or paste a question before selecting Run.";
+      return;
+    }
     const question = snipText
       ? `${typed || "Explain this snip."}\n\nText from snip:\n${snipText}`.slice(0, 4000)
       : typed;
     busy = true;
     const snip = pendingSnip;
-    clearSnip();
     if (recognition) recognition.abort();
     document.getElementById("submit").disabled = true;
     document.getElementById("new-chat").disabled = true;
     clearHistory.disabled = true;
+    if (externalAI) externalAI.disabled = true;
     input.value = "";
-    status.textContent = "Working on your question...";
+    const stopWorking = showWorking(status, "Working on your question");
+    const stopSearching = showSearching();
+    let submitted = false;
     try {
-      const result = await api("/api/chat", { question, mode: document.querySelector('input[name="mode"]:checked').value });
+      const result = await api("/api/chat", {
+        question, mode: document.querySelector('input[name="mode"]:checked').value,
+        allow_external_ai: externalAI?.checked || false
+      });
+      stopSearching();
+      submitted = true;
+      clearSnip();
       await renderMessage({ role: "user", content: result.question });
       if (snip) document.querySelector("#messages .message.user:last-of-type")?.append(snipImage(snip));
       await renderMessage(result.message);
@@ -378,8 +540,15 @@ if (ownerForm) {
       status.textContent = "";
       document.getElementById("question-form").scrollIntoView({ behavior: "smooth", block: "end" });
     } catch (error) {
+      if (!submitted && !input.value) input.value = snip ? typed : question;
       status.textContent = error.message;
     } finally {
+      stopSearching();
+      stopWorking();
+      if (externalAI) {
+        externalAI.checked = false;
+        externalAI.disabled = false;
+      }
       busy = false;
       document.getElementById("submit").disabled = false;
       document.getElementById("new-chat").disabled = false;
@@ -389,6 +558,16 @@ if (ownerForm) {
   });
   const snipPreview = document.getElementById("snip-preview");
   document.getElementById("question").addEventListener("paste", event => {
+    if (busy) {
+      event.preventDefault();
+      status.textContent = "Wait for the current answer before pasting another question.";
+      return;
+    }
+    if (event.clipboardData?.getData("text/plain").trim()) {
+      clearSnip();
+      status.textContent = "";
+      return;
+    }
     const file = [...(event.clipboardData?.files || [])].find(f => f.type.startsWith("image/"));
     if (!file) return;
     event.preventDefault();
@@ -398,20 +577,37 @@ if (ownerForm) {
     }
     if (file.type !== "image/png") { status.textContent = "Please paste a PNG snip."; return; }
     if (file.size > 2 * 1024 * 1024) { status.textContent = "Snip is too large (max 2 MB)."; return; }
+    clearSnip();
+    const version = snipVersion;
+    readingSnip = true;
+    status.textContent = "Reading text in snip...";
     const reader = new FileReader();
+    reader.onerror = () => {
+      if (snipVersion !== version) return;
+      readingSnip = false;
+      status.textContent = "The pasted image could not be loaded. Please paste it again.";
+    };
     reader.onload = () => {
+      if (snipVersion !== version) return;
       pendingSnip = reader.result;
       snipPreview.replaceChildren(snipImage(pendingSnip), element("button", "Remove", "snip-remove"));
       snipPreview.querySelector("button").type = "button";
-      snipPreview.querySelector("button").addEventListener("click", clearSnip);
+      snipPreview.querySelector("button").addEventListener("click", () => {
+        clearSnip();
+        status.textContent = "";
+      });
       snipPreview.hidden = false;
       const current = pendingSnip;
       status.textContent = "Reading text in snip...";
       api("/api/ocr", { image: current }).then(result => {
-        if (pendingSnip !== current) return;
+        if (snipVersion !== version) return;
         snipText = result.text.trim();
-        status.textContent = snipText ? "Snip text ready; it will be sent with your question." : "No readable text found in the snip.";
-      }).catch(error => { status.textContent = error.message; });
+        status.textContent = snipText ? "Snip text ready; it will be sent with your question." : "No readable text found. Paste the original text or try a larger, clearer image.";
+      }).catch(error => {
+        if (snipVersion === version) status.textContent = error.message;
+      }).finally(() => {
+        if (snipVersion === version) readingSnip = false;
+      });
     };
     reader.readAsDataURL(file);
   });
@@ -422,6 +618,7 @@ if (ownerForm) {
     }
   });
   document.getElementById("new-chat").addEventListener("click", async () => {
+    if (busy) return;
     try { await api("/api/new", {}); location.reload(); }
     catch (error) { status.textContent = error.message; }
   });

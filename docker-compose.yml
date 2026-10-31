@@ -1,0 +1,38 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    env_file: .env.mysql
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  sage:
+    build: .
+    image: sage-ai:latest
+    restart: unless-stopped
+    env_file: .env.docker
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_UNIX_SOCKET: ""
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - sage-instance:/app/instance
+      - ./logs:/app/logs
+
+volumes:
+  mysql-data:
+  sage-instance:

@@ -8,3 +8,7 @@ logs/
 .env *
 *.env
 *.env files
+.env.docker
+.env.mysql
+*.zip
+.env.azure

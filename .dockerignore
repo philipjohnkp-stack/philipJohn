@@ -1,0 +1,27 @@
+# Secrets: .env would override container env vars (see read_config), so never bake it in
+.env
+.env.*
+!.env.example
+*.env
+*.env *
+.env *
+VS CODE .env files
+
+.git
+.github
+.gitignore
+.venv
+.local-tools
+.streamlit
+.vscode
+.pytest_cache
+__pycache__
+*.py[cod]
+instance
+logs
+tests
+db
+docker-compose.yml
+Dockerfile
+.dockerignore
+*.zip
