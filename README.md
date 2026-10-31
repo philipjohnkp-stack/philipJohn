@@ -582,37 +582,46 @@ restrict access to approved users. App Service location does not relocate the
 existing Azure OpenAI endpoint; verify its region and processing terms before
 claiming Canada-only processing.
 
-## Run with Docker (app + MySQL)
+## Run with Docker (using your MySQL Workbench server)
 
-```bash
-cp .env.docker.example .env.docker   # Azure OpenAI keys; DB_USER/DB_PASSWORD = read-only account
-cp .env.mysql.example  .env.mysql    # MySQL root password, database name, read-only account
-docker compose up -d --build
-```
+By default the Sage container uses the MySQL server on this Mac, the same one
+MySQL Workbench connects to. It reaches that server at `host.docker.internal:3306`.
 
-Open http://localhost:8000. `docker-compose.yml` runs two containers:
+1. In Workbench, connected as root, run [db/workbench-sage-user.sql](db/workbench-sage-user.sql).
+   This creates the SELECT-only account `sage_reader`. Replace `CHANGE_ME` first, and
+   adjust the `GRANT` lines to the databases Sage should see. If a git-ignored
+   `db/workbench-sage-user.local.sql` exists, it already contains the password
+   from `.env.docker`, so you can run it as-is.
+2. Create the env file and start the container:
 
-- `sage`: the Flask app (gunicorn on port 8000), built from [Dockerfile](Dockerfile).
-  It connects to MySQL at `db:3306`. Logs go to `./logs`, and chat storage
-  goes to a named volume.
-- `db`: MySQL 8.4, published on host port **3307** so it does not clash with a
-  local MySQL. On the first start, scripts in [db/init](db/init) create a sample
-  `employees` table and a SELECT-only account (`SAGE_READER_USER`).
-  `SAGE_READER_PASSWORD` must match `DB_PASSWORD` in `.env.docker`.
+   ```bash
+   cp .env.docker.example .env.docker   # Azure OpenAI keys; DB_PASSWORD = sage_reader's password
+   docker compose up -d --build
+   ```
 
-Use MySQL from the command line:
+3. Open http://localhost:8000.
 
-```bash
-docker compose exec db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'   # admin
-docker compose exec db sh -c 'mysql -u"$SAGE_READER_USER" -p"$SAGE_READER_PASSWORD" "$MYSQL_DATABASE"'  # read-only
-mysql -h 127.0.0.1 -P 3307 -u sage_reader -p sage_data   # from the Mac, or MySQL Workbench on 127.0.0.1:3307
-```
-
-Other useful commands: `docker compose logs -f sage`, `docker compose down`
-(keeps data), and `docker compose down -v` (deletes MySQL data and reruns the
-init scripts on the next start). `.env` files are excluded from the image by
+Keep the MySQL server running. Workbench itself does not need to stay open.
+Root is not used from Docker: `root@localhost` rejects container connections,
+and Sage only needs read access. Logs go to `./logs`, and chat storage goes to
+a named volume. `.env` files are excluded from the image by
 [.dockerignore](.dockerignore). This matters because `.env` overrides container
 environment variables.
+
+Useful commands: `docker compose logs -f sage` and `docker compose down`.
+
+### Optional: bundled MySQL container instead
+
+```bash
+cp .env.mysql.example .env.mysql
+docker compose -f docker-compose.yml -f docker-compose.mysql.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.mysql.yml exec db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'
+```
+
+This runs MySQL 8.4 on host port **3307**, so you can open it in Workbench at
+`127.0.0.1:3307`. [db/init](db/init) seeds a sample `employees` table and a
+read-only account. `SAGE_READER_PASSWORD` in `.env.mysql` must match
+`DB_PASSWORD` in `.env.docker`.
 
 ## Deploy to Azure Container Apps (budget)
 
@@ -638,8 +647,10 @@ Run the script again to deploy a new image tag. Override names with `RG`, `ACR`,
 `APP`, and `LOCATION`.
 
 Cost notes:
-- The MySQL container is for local use only. In Azure, point `DB_HOST` at a
-  reachable MySQL server, for example Azure Database for MySQL Flexible Server B1ms.
+- Azure cannot reach the MySQL on your Mac (the Workbench server) or the local
+  MySQL container. In Azure, point `DB_HOST` at a MySQL server reachable from the
+  internet, for example Azure Database for MySQL Flexible Server B1ms. You can
+  then connect Workbench to that server as well.
 - Scale-to-zero means the first request after an idle period takes a few
   seconds while the app cold-starts.
 - Container storage is ephemeral: chat history and sessions reset when the
